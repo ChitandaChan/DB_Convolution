@@ -1,0 +1,19 @@
+import pandas as pd
+
+
+def update_fa_column(tlocation_path, base_path):
+    # Чтение данных из файлов
+    tlocation_df = pd.read_excel(tlocation_path, sheet_name='tlocation')
+    base_df = pd.read_excel(base_path)
+
+    # Создание словаря для быстрого поиска значений FA по KKS
+    fa_dict = dict(zip(base_df['KKS'], base_df['FA']))
+
+    # Обновление столбца FA в tlocation_df
+    tlocation_df['FA'] = tlocation_df['KKS'].map(fa_dict)
+
+    # Запись обновленных данных обратно в tlocation.xlsx
+    with pd.ExcelWriter(tlocation_path, mode='w') as writer:
+        tlocation_df.to_excel(writer, sheet_name='tlocation', index=False)
+
+    print("FA column updated successfully.")
