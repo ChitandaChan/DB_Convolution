@@ -1,190 +1,73 @@
-import tkinter as tk
-from tkinter import filedialog
-from tkinter import messagebox
+import pandas as pd
+import sys
+import argparse
+from data_extractor import create_new_excel_data
+from statistics_calculator import calculate_statistics, prepare_final_data
+from excel_writer import write_to_excel
+from sort import custom_sort
+from update_fa_column import update_fa_column
 
-# Функции для выполнения программ
-def program1(convolution.py):
-    print(f"Выполняется Program 1 с файлом: {convolution.py}")
-    import openpyxl
-from openpyxl import Workbook
-from openpyxl.utils import get_column_letter
-import re
+parser = argparse.ArgumentParser()
+parser.add_argument("input_file_path", help="Path to the input Excel file")
+parser.add_argument("base_file_path", help="Path to the base Excel file")
+parser.add_argument("--tlocation", action="store_true", help="Create tlocation with FA")
+parser.add_argument("--statistics", action="store_true", help="Create statistics sheet")
+parser.add_argument("--both", action="store_true", help="Run both processes sequentially")
 
-def extract_type_from_brackets(value_b):
-    matches = re.findall(r'\((.*?)\)', value_b)
-    if matches:
-        return matches[0]
-    else:
-        return ""
-first_row_skipped = True
+args = parser.parse_args()
 
-def create_new_excel_file(input_file_path, output_file_path):
-    workbook = openpyxl.load_workbook(input_file_path)
-    
-    new_workbook = Workbook()
-    new_sheet = new_workbook.active
-    
-    header = ["Cabinet", "Location", "Type", "Channel", "KKS", "CIR", "CONNECTION"]
-    new_sheet.append(header)
-    
-    buff_a = None  
-    next_buff_a = None  
-    
-    for sheet_name in workbook.sheetnames:
-        sheet = workbook[sheet_name]
-        
-        i = 1
-        j = 2
-        
-        while True:
-            buff_a = None
-            next_buff_a = None
-            processed_rows = False
-            
-            for row in sheet.iter_rows(min_row=1, max_col=52, max_row=sheet.max_row):
-                value_a = row[0].value
-                value_b = row[i].value
-                
-                if isinstance(value_a, str) and value_a.isalpha():
-                    if isinstance(value_b, str):
-                        type_value = extract_type_from_brackets(value_b)
-                        value_b = re.sub(r'\([^)]*\)', '', value_b)
-                        location_value = value_a + value_b.lstrip('0')
-                        if buff_a is None:
-                            buff_a = row[0].row  
-                        next_buff_a = row[0].row + 1 
-                        first_row_skipped = False
-                        
+input_file_path = args.input_file_path
+base_file_path = args.base_file_path
 
-                if buff_a is None:
-                    continue  
+output_file_path = 'tlocation.xlsx'
 
-               
-                if not first_row_skipped:
-                  first_row_skipped = True
-                  continue
+if args.both:
+    data = create_new_excel_data(input_file_path)
 
-                if row[i].fill.start_color.index != '00000000':  
-                    channel_value = int(value_a)
-                    kks = str(value_b)
-                    cir = str(row[j].value)
-                    new_sheet.append([sheet_name, location_value, type_value, channel_value, kks, cir, ''])
-                    processed_rows = True
+    df = pd.DataFrame(data, columns=["Cabinet", "Location", "Type", "Channel", "KKS", "CIR", "CONNECTION"])
 
+    # Добавляем новый столбец FA
+    df["FA"] = ""
 
-            i += 2
-            j += 2
-            if i > 52 or j > 52:  
-                 break
+    sorted_df = df.sort_values(by=["Cabinet", "Location"], key=lambda col: col.map(custom_sort))
 
-            # all_white = True
-            # for row in sheet.iter_rows(min_row=1, max_col=52, max_row=sheet.max_row):
-            #     if i <= 52 and row[i].fill.start_color.index != '00000000':
-            #         all_white = False
-            #         break
-            #     if j <= 52 and row[j].fill.start_color.index != '00000000':
-            #         all_white = False
-            #         break
-            
-            # if all_white:
-            #     break 
+    with pd.ExcelWriter(output_file_path, mode='w') as writer:
+        sorted_df.to_excel(writer, sheet_name='tlocation', index=False)
 
-            
+    # Обновление столбца FA
+    update_fa_column(output_file_path, base_file_path)
 
-    
-    new_sheet.auto_filter.ref = new_sheet.dimensions  
-    new_sheet.auto_filter.add_sort_condition("A2:B{}".format(new_sheet.max_row)) 
+    module_types = ['DI', 'AI', 'DO', 'AO', 'AI-R']
+    module_stats, channel_stats, cabinet_stats = calculate_statistics(df, module_types)
 
-    new_workbook.save(output_file_path)
-    print(f"Новый файл Excel сохранен как: {output_file_path}")
+    final_data = prepare_final_data(module_stats, channel_stats, cabinet_stats)
 
-input_file_path = '/content/drive/MyDrive/Свертка_таблицы/10CRC11.xlsx'
-output_file_path = '/content/drive/MyDrive/Свертка_таблицы/test.xlsx'
+    write_to_excel(final_data, output_file_path)
 
-create_new_excel_file(input_file_path, output_file_path)
+elif args.tlocation:
+    data = create_new_excel_data(input_file_path)
 
-def program2(sort.py):
-    print(f"Выполняется Program 2 с файлом: {sort.py}")
-    import pandas as pd
-import re
+    df = pd.DataFrame(data, columns=["Cabinet", "Location", "Type", "Channel", "KKS", "CIR", "CONNECTION"])
 
-# Функция для извлечения префикса и числовой части из строки
-def split_string(s):
-    match = re.match(r"([A-Za-z]+)(\d+)", s)
-    if match:
-        return match.groups()[0], int(match.groups()[1])
-    else:
-        return s, -1  # Возвращаем исходную строку и -1 для строк, не соответствующих шаблону
+    # Добавляем новый столбец FA
+    df["FA"] = ""
 
-# Функция для сортировки с использованием split_string
-def custom_sort(val):
-    prefix, number = split_string(val)
-    return (prefix, number)
+    sorted_df = df.sort_values(by=["Cabinet", "Location"], key=lambda col: col.map(custom_sort))
 
-# Открытие файла Excel
-file_path = "/content/drive/MyDrive/Свертка_таблицы/test.xlsx"
-df = pd.read_excel(file_path)
+    with pd.ExcelWriter(output_file_path, mode='w') as writer:
+        sorted_df.to_excel(writer, sheet_name='tlocation', index=False)
 
-# Сортировка по двум столбцам с кастомной функцией сортировки для каждого столбца
-sorted_df = df.sort_values(by=[df.columns[0], df.columns[1]], key=lambda col: col.map(custom_sort))
+    # Обновление столбца FA
+    update_fa_column(output_file_path, base_file_path)
 
-# Сохранение результата в новый файл
-sorted_df.to_excel("/content/drive/MyDrive/Свертка_таблицы/sorted_test.xlsx", index=False)
+elif args.statistics:
+    data = pd.read_excel(input_file_path)
 
-# Функции для выбора файлов
-def choose_file1():
-    file_path1 = filedialog.askopenfilename()
-    file_label1.config(text=file_path1)
+    module_types = ['DI', 'AI', 'DO', 'AO', 'AI-R']
+    module_stats, channel_stats, cabinet_stats = calculate_statistics(data, module_types)
 
-def choose_file2():
-    file_path2 = filedialog.askopenfilename()
-    file_label2.config(text=file_path2)
+    final_data = prepare_final_data(module_stats, channel_stats, cabinet_stats)
 
-# Функция для выполнения выбранных программ
-def execute_programs():
-    file_path1 = file_label1.cget("text")
-    file_path2 = file_label2.cget("text")
+    write_to_excel(final_data, output_file_path)
 
-    if checkbox_var1.get() and not file_path1:
-        messagebox.showwarning("Предупреждение", "Пожалуйста, выберите файл для Program 1.")
-        return
-
-    if checkbox_var2.get() and not file_path2:
-        messagebox.showwarning("Предупреждение", "Пожалуйста, выберите файл для Program 2.")
-        return
-    
-    if checkbox_var1.get():
-        program1(file_path1)
-    if checkbox_var2.get():
-        program2(file_path2)
-
-# Создание главного окна
-root = tk.Tk()
-root.title("Программа с визуализацией")
-
-# Переменные для чекбоксов
-checkbox_var1 = tk.BooleanVar()
-checkbox_var2 = tk.BooleanVar()
-
-# Чекбоксы для выбора программ
-checkbox1 = tk.Checkbutton(root, text="Program 1", variable=checkbox_var1)
-checkbox1.pack()
-
-# Метка и кнопка для выбора файла для Program 1
-file_label1 = tk.Label(root, text="Файл для Program 1 не выбран")
-file_label1.pack()
-choose_button1 = tk.Button(root, text="Выбрать файл для Program 1", command=choose_file1)
-choose_button1.pack()
-
-checkbox2 = tk.Checkbutton(root, text="Program 2", variable=checkbox_var2)
-checkbox2.pack()
-
-# Метка и кнопка для выбора файла для Program 2
-file_label2 = tk.Label(root, text="Файл для Program 2 не выбран")
-file_label2.pack()
-choose_button2 = tk.Button(root, text="Выбрать файл для Program 2", command=choose_file2)
-choose_button2.pack()
-
-# Кнопка для выполнения выбранных программ
-execute_button = tk.Button(root, text="Выполнить", command=execute_programs)
-execute_button.pack()
+print(f"Process completed. Output saved to {output_file_path}")
