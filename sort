@@ -1,25 +1,13 @@
-import pandas as pd
 import re
 
-# Функция для извлечения префикса и числовой части из строки
+
 def split_string(s):
     match = re.match(r"([A-Za-z]+)(\d+)", s)
     if match:
         return match.groups()[0], int(match.groups()[1])
     else:
-        return s, -1  # Возвращаем исходную строку и -1 для строк, не соответствующих шаблону
+        return s, -1
 
-# Функция для сортировки с использованием split_string
 def custom_sort(val):
     prefix, number = split_string(val)
     return (prefix, number)
-
-# Открытие файла Excel
-file_path = "/content/drive/MyDrive/Свертка_таблицы/test.xlsx"
-df = pd.read_excel(file_path)
-
-# Сортировка по двум столбцам с кастомной функцией сортировки для каждого столбца
-sorted_df = df.sort_values(by=[df.columns[0], df.columns[1]], key=lambda col: col.map(custom_sort))
-
-# Сохранение результата в новый файл
-sorted_df.to_excel("/content/drive/MyDrive/Свертка_таблицы/sorted_test.xlsx", index=False)
