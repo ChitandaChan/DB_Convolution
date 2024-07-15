@@ -1,0 +1,56 @@
+import openpyxl
+import re
+import pandas as pd
+
+def extract_type_from_brackets(value_b):
+    matches = re.findall(r'\((.*?)\)', value_b)
+    return matches[0] if matches else ""
+
+def create_new_excel_data(input_file_path):
+    workbook = openpyxl.load_workbook(input_file_path)
+    data = []
+
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        i, j, x = 1, 2, 3
+
+        while True:
+            buff_a, next_buff_a = None, None
+            processed_rows = False
+            first_row_skipped = True
+
+            for row in sheet.iter_rows(min_row=1, max_col=80, max_row=sheet.max_row):
+                value_a = row[0].value if row[0].value else ""
+                value_b = row[i].value if row[i].value else ""
+
+                if isinstance(value_a, str) and value_a.isalpha():
+                    if isinstance(value_b, str):
+                        type_value = extract_type_from_brackets(value_b)
+                        value_b = re.sub(r'\([^)]*\)', '', value_b)
+                        location_value = value_a + value_b.lstrip('0')
+                        if buff_a is None:
+                            buff_a = row[0].row
+                        next_buff_a = row[0].row + 1
+                        first_row_skipped = False
+
+                if buff_a is None:
+                    continue
+                if not first_row_skipped:
+                    first_row_skipped = True
+                    continue
+
+                if row[i].fill.start_color.index != '00000000':
+                    channel_value = int(value_a) if isinstance(value_a, (int, float)) or (isinstance(value_a, str) and value_a.isdigit()) else ""
+                    kks = str(value_b) if value_b else ""
+                    cir = str(row[j].value) if row[j].value else ""
+                    connection = str(row[x].value) if row[x].value else ""
+                    data.append([sheet_name, location_value, type_value, channel_value, kks, cir, connection])
+                    processed_rows = True
+
+            i += 3
+            j += 3
+            x += 3
+            if i > 80 or j > 80 or x > 80:
+                break
+
+    return data
