@@ -1,0 +1,52 @@
+import pandas as pd
+
+def calculate_statistics(df, module_types):
+    module_stats = {}
+    channel_stats = {}
+    cabinet_stats = {}
+
+    for module_type in module_types:
+        # Подсчет уникальных модулей по шкафам
+        unique_modules = df[df['Type'] == module_type].drop_duplicates(subset=['Cabinet', 'Location'])
+        module_stats[f'Общее количество модулей {module_type}'] = unique_modules.shape[0]
+        channel_stats[f'Общее количество каналов {module_type}'] = df[df['Type'] == module_type].shape[0]
+
+    # Общее количество каналов всего
+    channel_stats['Общее количество каналов всего'] = df.shape[0]
+    # Общее количество резервных каналов
+    channel_stats['Общее количество резервных каналов'] = df[df['KKS'].isnull() | (df['KKS'] == '')].shape[0]
+
+    for cabinet in df['Cabinet'].unique():
+        cabinet_df = df[df['Cabinet'] == cabinet]
+        cabinet_stats[cabinet] = {
+            module_type: {
+                'modules': cabinet_df[cabinet_df['Type'] == module_type]['Location'].nunique(),
+                'channels': cabinet_df[cabinet_df['Type'] == module_type].shape[0]
+            }
+            for module_type in module_types
+        }
+        # Добавляем количество каналов в шкафу
+        cabinet_stats[cabinet]['Общее количество каналов'] = cabinet_df.shape[0]
+
+    return module_stats, channel_stats, cabinet_stats
+
+def prepare_final_data(module_stats, channel_stats, cabinet_stats):
+    final_data = []
+    final_data.append(['Каналы', ''])
+    for channel_type in channel_stats.keys():
+        final_data.append([channel_type, channel_stats[channel_type]])
+
+    final_data.append(['Модули', ''])
+    for module_type in module_stats.keys():
+        final_data.append([module_type, module_stats[module_type]])
+
+    final_data.append(['Шкафы', ''])
+    for cabinet, counts in cabinet_stats.items():
+        final_data.append([f'Шкаф {cabinet}', ''])
+        for module_type, count in counts.items():
+            if module_type != 'Общее количество каналов':  # Убираем общий подсчет каналов из модуля
+                final_data.append([f'{module_type} модули в шкафу {cabinet}', count['modules']])
+                final_data.append([f'{module_type} каналы в шкафу {cabinet}', count['channels']])
+        final_data.append([f'Общее количество каналов в шкафу {cabinet}', counts['Общее количество каналов']])
+
+    return final_data
