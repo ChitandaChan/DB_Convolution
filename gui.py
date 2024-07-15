@@ -1,72 +1,106 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
-import pandas as pd
-import re
-import os
+import subprocess
 
-# Функция для создания нового Excel файла
-def create_new_excel(input_file):
-    # Здесь ваш код для создания нового Excel файла
-    # Например:
-    output_file = 'output.xlsx'
-    df = pd.read_excel(input_file)
-    df.to_excel(output_file, index=False)
-    return output_file
+class FileProcessorApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Обработчик файлов")
 
-# Функция для сортировки данных в Excel файле
-def sort_excel(file):
-    # Здесь ваш код для сортировки данных в Excel файле
-    # Например:
-    df = pd.read_excel(file)
-    df_sorted = df.sort_values(by=['column_to_sort_by'])
-    df_sorted.to_excel(file, index=False)
+        self.input_file_label = tk.Label(root, text="Выберите основной файл:")
+        self.input_file_label.pack(pady=5)
 
-# Функция для обработки данных в зависимости от выбранных опций
-def process_data():
-    input_file = file_path.get()
-    if not input_file:
-        messagebox.showerror("Ошибка", "Выберите файл Excel")
-        return
-    
-    if create_file.get() and sort_file.get():
-        messagebox.showerror("Ошибка", "Выберите только одну опцию")
-        return
-    
-    if create_file.get():
-        output_file = create_new_excel(input_file)
-        messagebox.showinfo("Успешно", f"Создан новый файл: {output_file}")
-    elif sort_file.get():
-        sort_excel(input_file)
-        messagebox.showinfo("Успешно", "Данные в файле отсортированы")
+        self.input_file_entry = tk.Entry(root, width=50)
+        self.input_file_entry.pack(pady=5)
 
-# Функция для выбора файла
-def choose_file():
-    file_path.set(filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx *.xls")]))
+        self.input_file_button = tk.Button(root, text="Обзор...", command=self.select_input_file)
+        self.input_file_button.pack(pady=5)
 
-# Создание основного окна приложения
-root = tk.Tk()
-root.title("Обработка Excel файлов")
+        self.base_file_label = tk.Label(root, text="Выберите базовый файл:")
+        self.base_file_label.pack(pady=5)
 
-# Переменная для хранения пути к выбранному файлу
-file_path = tk.StringVar()
+        self.base_file_entry = tk.Entry(root, width=50)
+        self.base_file_entry.pack(pady=5)
 
-# Фрейм для выбора файла
-file_frame = tk.Frame(root)
-file_frame.pack(pady=20)
+        self.base_file_button = tk.Button(root, text="Обзор...", command=self.select_base_file)
+        self.base_file_button.pack(pady=5)
 
-tk.Button(file_frame, text="Выбрать файл", command=choose_file).pack()
+        self.checkbox_frame = tk.Frame(root)
+        self.checkbox_frame.pack(pady=10)
 
-# Фрейм для выбора опций
-options_frame = tk.Frame(root)
-options_frame.pack(pady=20)
+        self.checkbox1_var = tk.IntVar()
+        self.checkbox1 = tk.Checkbutton(self.checkbox_frame, text="Создать tlocation с FA", variable=self.checkbox1_var)
+        self.checkbox1.pack(side=tk.LEFT, padx=10)
 
-create_file = tk.IntVar()
-sort_file = tk.IntVar()
+        self.checkbox2_var = tk.IntVar()
+        self.checkbox2 = tk.Checkbutton(self.checkbox_frame, text="Создать лист со статистикой", variable=self.checkbox2_var)
+        self.checkbox2.pack(side=tk.LEFT, padx=10)
 
-tk.Checkbutton(options_frame, text="Создать новый файл", variable=create_file).grid(row=0, column=0, padx=20)
-tk.Checkbutton(options_frame, text="Сортировать файл", variable=sort_file).grid(row=0, column=1, padx=20)
+        self.process_button = tk.Button(root, text="Обработать файлы", command=self.process_files)
+        self.process_button.pack(pady=20)
 
-# Кнопка для обработки данных
-tk.Button(root, text="Обработать данные", command=process_data).pack()
+    def select_input_file(self):
+        file_path = filedialog.askopenfilename(title="Выберите основной Excel файл", filetypes=[("Excel файлы", "*.xlsx")])
+        if file_path:
+            self.input_file_entry.delete(0, tk.END)
+            self.input_file_entry.insert(0, file_path)
 
-root.mainloop()
+    def select_base_file(self):
+        file_path = filedialog.askopenfilename(title="Выберите базовый Excel файл", filetypes=[("Excel файлы", "*.xlsx")])
+        if file_path:
+            self.base_file_entry.delete(0, tk.END)
+            self.base_file_entry.insert(0, file_path)
+
+    def process_files(self):
+        input_file_path = self.input_file_entry.get()
+        base_file_path = self.base_file_entry.get()
+
+        if not input_file_path:
+            messagebox.showerror("Ошибка", "Выберите основной файл!")
+            return
+
+        checkbox1_checked = self.checkbox1_var.get() == 1
+        checkbox2_checked = self.checkbox2_var.get() == 1
+
+        if checkbox1_checked and checkbox2_checked:
+            if not base_file_path:
+                messagebox.showerror("Ошибка", "Выберите базовый файл!")
+                return
+            self.process_with_both_options(input_file_path, base_file_path)
+        elif checkbox1_checked:
+            if not base_file_path:
+                messagebox.showerror("Ошибка", "Выберите базовый файл!")
+                return
+            self.process_create_tlocation_with_fa(input_file_path, base_file_path)
+        elif checkbox2_checked:
+            tlocation_path = filedialog.askopenfilename(title="Выберите файл tlocation", filetypes=[("Excel файлы", "*.xlsx")])
+            if tlocation_path:
+                self.process_create_statistics(tlocation_path)
+        else:
+            messagebox.showerror("Ошибка", "Выберите хотя бы один чекбокс!")
+
+    def process_with_both_options(self, input_file_path, base_file_path):
+        result = subprocess.run(["python", "main.py", input_file_path, base_file_path, "--both"], capture_output=True, text=True)
+        if result.returncode == 0:
+            messagebox.showinfo("Успех", "Файлы успешно обработаны!")
+        else:
+            messagebox.showerror("Ошибка", f"Произошла ошибка:\n{result.stderr}")
+
+    def process_create_tlocation_with_fa(self, input_file_path, base_file_path):
+        result = subprocess.run(["python", "main.py", input_file_path, base_file_path, "--tlocation"], capture_output=True, text=True)
+        if result.returncode == 0:
+            messagebox.showinfo("Успех", "Файл tlocation успешно создан с FA!")
+        else:
+            messagebox.showerror("Ошибка", f"Произошла ошибка:\n{result.stderr}")
+
+    def process_create_statistics(self, tlocation_path):
+        result = subprocess.run(["python", "main.py", tlocation_path, "--statistics"], capture_output=True, text=True)
+        if result.returncode == 0:
+            messagebox.showinfo("Успех", "Лист со статистикой успешно создан!")
+        else:
+            messagebox.showerror("Ошибка", f"Произошла ошибка:\n{result.stderr}")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = FileProcessorApp(root)
+    root.mainloop()
