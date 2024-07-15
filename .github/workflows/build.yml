@@ -21,7 +21,7 @@ jobs:
           pip install pyinstaller pandas openpyxl
       - name: Build executable
         run: |
-          pyinstaller DB_Convolution.spec
+          pyinstaller DB_Convolution/DB_Convolution.spec
 
       - name: Upload executable
         uses: actions/upload-artifact@v2
