@@ -1,0 +1,46 @@
+import pandas as pd
+
+def write_to_excel(data, file_path):
+    combined_stats_df = pd.DataFrame(data)
+
+    def highlight_subgroups(s):
+        styles = []
+        for title in s:
+            if isinstance(title, str):
+                if 'Каналы' in title:
+                    styles.append('background-color: #add8e6; border: 2px solid #000000;')
+                elif 'Модули' in title:
+                    styles.append('background-color: #90ee90; border: 2px solid #000000;')
+                elif 'Шкафы' in title:
+                    styles.append('background-color: #ffcccb; border: 2px solid #000000;')
+                elif 'Шкаф' in title:
+                    styles.append('background-color: #ffffe0; border: 2px solid #000000;')
+                else:
+                    styles.append('')
+            else:
+                styles.append('')
+        return styles
+
+    styled_df = combined_stats_df.style.apply(highlight_subgroups, axis=0)
+
+    def highlight_values(s):
+        styles = []
+        for title in s:
+            if isinstance(title, str) and 'Каналы' in title:
+                styles.append('border: 2px solid #000000;')
+            elif isinstance(title, str) and 'Модули' in title:
+                styles.append('border: 2px solid #000000;')
+            elif isinstance(title, str) and 'Шкафы' in title:
+                styles.append('border: 2px solid #000000;')
+            elif isinstance(title, str) and 'Шкаф' in title:
+                styles.append('border: 2px solid #000000;')
+            elif isinstance(title, (int, float)):
+                styles.append('border: 2px solid #000000;')
+            else:
+                styles.append('')
+        return styles
+
+    styled_df = styled_df.apply(highlight_values, axis=0)
+
+    with pd.ExcelWriter(file_path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+        styled_df.to_excel(writer, sheet_name='Статистика', index=False, header=False)
